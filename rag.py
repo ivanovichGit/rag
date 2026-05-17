@@ -201,12 +201,64 @@ class Assistant:
 
     def ask(self, question: str, k: Optional[int] = None) -> str:
         """Generates an answer from the retrieved context and conversation history.
-
         The current question is combined with relevant document chunks, previous
         conversation messages, and the system prompt. The assistant response is
         appended to history alongside the user message.
         """
-        pass
+
+        results = retrieve(
+            query=question,
+            index=self.index,
+            model=self.modelm,
+            chunks=self.chunk, 
+            k=self.k
+        )
+
+        if not results:
+            return "I don't have enough information to answer this question."
+        
+        # El asistente deberá recuperar contexto relevante antes de llamar al modelo de lenguaje.
+        # Las respuestas deberán estar fundamentadas en el contexto proporcionado,
+        # tanto en el mensaje actual como en los anteriores en el historial.
+        context = "\n\n---\n\n".join(r["text"] for r in results)
+
+        history_txt = ""
+
+        for message in self.history:
+            history_txt += f"{message['role']}: {message['content']}\n"
+        
+        response = self.client.chat.completions.create(
+            model=self.llm_model,
+            messages=[
+                {
+                    "role": "system", 
+                    "content": SYSTEM_PROMPT
+                 },
+                {
+                    "role": "user",
+                    "content": f"""
+                        Conversation history: {history_txt}
+                        Context:{context}
+                        Question: {question}"""
+                 },
+            ],
+        )
+
+        answer = response.choices[0].message.content
+        
+        # Se guarda historial para futuras preguntas  
+        self.history.append({
+            "role": "user",
+            "content": question
+        })
+
+        self.history.append({
+            "role": "assistant",
+            "content": answer
+        })
+
+        return answer 
+
 
     def clear_history(self) -> None:
         """Empties the conversation history."""
