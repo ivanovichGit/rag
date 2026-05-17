@@ -11,6 +11,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
+# Default configs
+DEFAULT_DATA_DIR = "data"
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_CHUNK_SIZE = 256
+DEFAULT_CHUNK_OVERLAP = 32
+DEFAULT_TOP_K = 4
 
 def _parse_int_setting(name: str, value: Any) -> int:
     try:
@@ -28,18 +34,18 @@ def resolve_config(config: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "api_key": os.environ.get('OPENAI_KEY'),
         "base_url": os.environ.get('OPENAI_BASE_URL'),
         "model": os.environ.get('MODEL'),
-        "embedding_model": os.environ.get('DEFAULT_EMBEDDING_MODEL'),
+        "embedding_model": config.get("embedding_model", DEFAULT_EMBEDDING_MODEL),
         "top_k": _parse_int_setting(
             "TOP_K",
-            os.environ.get('DEFAULT_TOP_K'),
+            config.get("top_k", DEFAULT_TOP_K),
         ),
         "chunk_size": _parse_int_setting(
             "CHUNK_SIZE",
-            os.environ.get('DEFAULT_CHUNK_SIZE'),
+            config.get("chunk_size", DEFAULT_CHUNK_SIZE),
         ),
         "chunk_overlap": _parse_int_setting(
             "CHUNK_OVERLAP",
-            os.environ.get('DEFAULT_CHUNK_OVERLAP')
+            config.get("chunk_overlap", DEFAULT_CHUNK_OVERLAP),
         ),
     }
 
