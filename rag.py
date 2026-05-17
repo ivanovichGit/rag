@@ -11,12 +11,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
-# Default configs
-DEFAULT_DATA_DIR = "data"
-DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-DEFAULT_CHUNK_SIZE = 256
-DEFAULT_CHUNK_OVERLAP = 32
-DEFAULT_TOP_K = 4
 
 def _parse_int_setting(name: str, value: Any) -> int:
     try:
@@ -34,18 +28,18 @@ def resolve_config(config: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "api_key": os.environ.get('OPENAI_KEY'),
         "base_url": os.environ.get('OPENAI_BASE_URL'),
         "model": os.environ.get('MODEL'),
-        "embedding_model": config.get("embedding_model", DEFAULT_EMBEDDING_MODEL),
+        "embedding_model": os.environ.get('DEFAULT_EMBEDDING_MODEL'),
         "top_k": _parse_int_setting(
             "TOP_K",
-            config.get("top_k", DEFAULT_TOP_K),
+            os.environ.get('DEFAULT_TOP_K'),
         ),
         "chunk_size": _parse_int_setting(
             "CHUNK_SIZE",
-            config.get("chunk_size", DEFAULT_CHUNK_SIZE),
+            os.environ.get('DEFAULT_CHUNK_SIZE'),
         ),
         "chunk_overlap": _parse_int_setting(
             "CHUNK_OVERLAP",
-            config.get("chunk_overlap", DEFAULT_CHUNK_OVERLAP),
+            os.environ.get('DEFAULT_CHUNK_OVERLAP')
         ),
     }
 
@@ -167,16 +161,20 @@ def retrieve(query: str, index: faiss.IndexFlatIP, model: SentenceTransformer, c
 
 
 # --- Paso 4: Construir el prompt y generar respuesta ---
-SYSTEM_PROMPT = ""
+# El asistente deberá recuperar contexto relevante antes de llamar al modelo de lenguaje.
+# Las respuestas deberán estar fundamentadas en el contexto proporcionado, tanto en el mensaje actual como en los anteriores en el historial.
+# Si no hay documentos relevantes, el asistente deberá abstenerse de responder.
+SYSTEM_PROMPT = """You are a technical assistant. Answer the user's question using ONLY the provided context. Follow these rules:
+- If the context doesn't contain the answer, say "I don't have enough information to answer this question."
+- Be concise and precise.
+- Do not use prior knowledge outside of the context."""
 
 
 class Assistant:
     """Stateful RAG assistant.
-
     The assistant owns the pipeline components, resolved configuration, and
     conversation history. Questions are answered with retrieved document context
-    and the configured chat model.
-    """
+    and the configured chat model."""
 
     def __init__(
             self,
