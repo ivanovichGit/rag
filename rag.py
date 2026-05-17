@@ -5,6 +5,7 @@ import glob as globmod
 from typing import Any
 from typing import Optional
 import faiss
+import numpy as np
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
@@ -59,6 +60,7 @@ def resolve_config(config: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     return resolved
 
+# --- Paso 1: Preparación de documentos ---
 # Carga de documentos desde las carpetas data/emails, data/notes, data/sms y data/calendar.
 def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
     """Loads documents from the personal data folders.
@@ -107,16 +109,17 @@ def split_documents(docs: list[Document], chunk_size: int = DEFAULT_CHUNK_SIZE, 
     """
 
     # El tamaño de chunk y el overlap deberán tomarse de la configuración recibida por el pipeline.
-    chunks = RecursiveCharacterTextSplitter(
+    splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, 
         chunk_overlap=chunk_overlap
     )
     
     # Los metadatos de los documentos originales deberán preservarse en los chunks.
-    texts = chunks.split_documents(docs)
+    chunks = splitter.split_documents(docs)
 
-    return texts
+    return chunks
 
+# --- Paso 2: Generar embeddings e indexar con FAISS ---
 # Construcción de un índice FAISS a partir de embeddings generados con Sentence Transformers.
 def build_index(chunks: list[Document],embedding_model: SentenceTransformer,) -> faiss.IndexFlatIP:
     """Creates a FAISS inner-product index for embedded document chunks.
@@ -124,9 +127,19 @@ def build_index(chunks: list[Document],embedding_model: SentenceTransformer,) ->
     chunk's text with the provided embedding model.
     """
 
-    pass
+    texts = [chunk.page_content for chunk in chunks]
+    
+    embeddings = embedding_model.encode(texts, normalize_embeddings=True).astype(np.float32)
+    
+    # Creacion indice 
+    index = faiss.IndexFlatIP(embeddings.shape[1])
+    
+    # Embedding al indice 
+    index.add(embeddings)
 
+    return index
 
+# --- Paso 3: Recuperar documentos relevantes ---
 def retrieve(query: str, index: faiss.IndexFlatIP, model: SentenceTransformer, chunks: list[Document], k: int = DEFAULT_TOP_K,) -> list[dict]:
     """Gets the most relevant chunks for a query.
 
@@ -136,6 +149,7 @@ def retrieve(query: str, index: faiss.IndexFlatIP, model: SentenceTransformer, c
     pass
 
 
+# --- Paso 4: Construir el prompt y generar respuesta ---
 SYSTEM_PROMPT = ""
 
 
@@ -220,17 +234,12 @@ class Assistant:
 if __name__ == "__main__":
 
     docs = load_documents()
+
     chunks = split_documents(docs)
 
-    print(f"{len(docs)} documents\n")
-    print(f"Chunks created: {len(chunks)}\n")
+    model = SentenceTransformer(DEFAULT_EMBEDDING_MODEL)
 
-    # Mostrar primeros documentos
-    for chunk in chunks[:3]:
-        print("CONTENT:")
-        print(chunk.page_content)
+    index = build_index(chunks, model)
 
-        print("\nMETADATA:")
-        print(chunk.metadata)
-
-        print("\n")
+    print(f"Total vectors: {index.ntotal}")
+    print(f"Embedding dimension: {index.d}")
