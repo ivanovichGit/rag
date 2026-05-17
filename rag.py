@@ -30,23 +30,22 @@ def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Resolves runtime configuration with defaults and typed settings."""
     config = config or {}
 
+    api_key = config.get("api_key") or os.environ.get('OPENAI_API_KEY')
+    base_url = config.get("base_url") or os.environ.get('OPENAI_BASE_URL')
+    model = config.get("model") or os.environ.get('MODEL')
+    embedding_model = config.get("embedding_model") or DEFAULT_EMBEDDING_MODEL
+    top_k = config.get("top_k") or DEFAULT_TOP_K
+    chunk_size = config.get("chunk_size") or DEFAULT_CHUNK_SIZE
+    chunk_overlap = config.get("chunk_overlap") or DEFAULT_CHUNK_OVERLAP
+
     resolved = {
-        "api_key": os.environ.get('OPENAI_KEY'),
-        "base_url": os.environ.get('OPENAI_BASE_URL'),
-        "model": os.environ.get('MODEL'),
-        "embedding_model": config.get("embedding_model", DEFAULT_EMBEDDING_MODEL),
-        "top_k": _parse_int_setting(
-            "TOP_K",
-            config.get("top_k", DEFAULT_TOP_K),
-        ),
-        "chunk_size": _parse_int_setting(
-            "CHUNK_SIZE",
-            config.get("chunk_size", DEFAULT_CHUNK_SIZE),
-        ),
-        "chunk_overlap": _parse_int_setting(
-            "CHUNK_OVERLAP",
-            config.get("chunk_overlap", DEFAULT_CHUNK_OVERLAP),
-        ),
+        "api_key": api_key,
+        "base_url": base_url,
+        "model": model,
+        "embedding_model": embedding_model,
+        "top_k": _parse_int_setting("TOP_K", top_k),
+        "chunk_size": _parse_int_setting("CHUNK_SIZE", chunk_size),
+        "chunk_overlap": _parse_int_setting("CHUNK_OVERLAP", chunk_overlap),
     }
 
     if resolved["top_k"] <= 0:
@@ -209,9 +208,9 @@ class Assistant:
         results = retrieve(
             query=question,
             index=self.index,
-            model=self.modelm,
-            chunks=self.chunk, 
-            k=self.k
+            model=self.model,
+            chunks=self.chunks, 
+            k=k or self.top_k
         )
 
         if not results:
@@ -265,7 +264,7 @@ class Assistant:
         self.history.clear()
 
     @classmethod
-    def from_config(cls, config: dict[str, Any] | None = None) -> Assistant:
+    def from_config(cls, config: dict[str, Any] | None = None) -> 'Assistant':
         """Initializes the components required by the assistant and instantiates it
 
         The pipeline includes resolved configuration, loaded documents, chunked
