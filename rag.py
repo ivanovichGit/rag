@@ -59,7 +59,7 @@ def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
 
     return resolved
 
-
+# Carga de documentos desde las carpetas data/emails, data/notes, data/sms y data/calendar.
 def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
     """Loads documents from the personal data folders.
 
@@ -78,17 +78,19 @@ def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
         # Todos los txt del folder
         folder_path = globmod.glob(os.path.join(data_dir, doc_type, "*.txt"))
 
-        # Cada archivo txt 
-        for file in folder_path:
+        # Cada archivo txt file path en el path del folder 
+        for file_path in folder_path:
             
-            with open(file, "r", encoding="utf-8") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                raw_text = f.read 
 
-            # Creacion Documento del texto en los folder
+            # Cada archivo .txt deberá convertirse en un Document
             doc = Document(
                 page_content=raw_text, 
+                # Los metadatos deberán incluir al menos la ruta del archivo y el tipo de documento.
+                # Ejemplo: .../01_surprise_party.txt, calendar
                 metadata={
-                    "source": "ml_notes.txt",
+                    "source": file_path,
                     "type" : doc_type
                     }
                 )
@@ -97,24 +99,19 @@ def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
 
     return documents
 
-
-def split_documents(
-        docs: list[Document],
-        chunk_size: int = DEFAULT_CHUNK_SIZE,
-        chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
-) -> list[Document]:
+# División de documentos en chunks utilizando RecursiveCharacterTextSplitter.
+def split_documents(docs: list[Document],chunk_size: int = DEFAULT_CHUNK_SIZE,chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,) -> list[Document]:
     """Splits documents into overlapping chunks.
 
     The resulting chunked Document objects use the configured chunk size and
     overlap while preserving the original document metadata.
     """
+
+
     pass
 
 
-def build_index(
-        chunks: list[Document],
-        embedding_model: SentenceTransformer,
-) -> faiss.IndexFlatIP:
+def build_index(chunks: list[Document],embedding_model: SentenceTransformer,) -> faiss.IndexFlatIP:
     """Creates a FAISS inner-product index for embedded document chunks.
 
     The index contains normalized float32 embeddings generated from each
@@ -123,13 +120,7 @@ def build_index(
     pass
 
 
-def retrieve(
-        query: str,
-        index: faiss.IndexFlatIP,
-        model: SentenceTransformer,
-        chunks: list[Document],
-        k: int = DEFAULT_TOP_K,
-) -> list[dict]:
+def retrieve(query: str, index: faiss.IndexFlatIP, model: SentenceTransformer, chunks: list[Document], k: int = DEFAULT_TOP_K,) -> list[dict]:
     """Gets the most relevant chunks for a query.
 
     Results are ordered by similarity and include the chunk text, similarity
