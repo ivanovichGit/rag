@@ -113,17 +113,17 @@ def split_documents(docs: list[Document], chunk_size: int = DEFAULT_CHUNK_SIZE, 
     )
     
     # Los metadatos de los documentos originales deberán preservarse en los chunks.
-    texts = chunks.split_documents(chunks)
+    texts = chunks.split_documents(docs)
 
     return texts
 
-
+# Construcción de un índice FAISS a partir de embeddings generados con Sentence Transformers.
 def build_index(chunks: list[Document],embedding_model: SentenceTransformer,) -> faiss.IndexFlatIP:
     """Creates a FAISS inner-product index for embedded document chunks.
-
     The index contains normalized float32 embeddings generated from each
     chunk's text with the provided embedding model.
     """
+
     pass
 
 
@@ -220,15 +220,17 @@ class Assistant:
 if __name__ == "__main__":
 
     docs = load_documents()
+    chunks = split_documents(docs)
 
     print(f"{len(docs)} documents\n")
+    print(f"Chunks created: {len(chunks)}\n")
 
     # Mostrar primeros documentos
-    for doc in docs[:3]:
+    for chunk in chunks[:3]:
         print("CONTENT:")
-        print(doc.page_content)
+        print(chunk.page_content)
 
         print("\nMETADATA:")
-        print(doc.metadata)
+        print(chunk.metadata)
 
         print("\n")
