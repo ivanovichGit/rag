@@ -3,7 +3,7 @@
 import os
 import glob as globmod
 from typing import Any
-import numpy as np
+from typing import Optional
 import faiss
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -25,7 +25,7 @@ def _parse_int_setting(name: str, value: Any) -> int:
     return parsed
 
 
-def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+def resolve_config(config: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Resolves runtime configuration with defaults and typed settings."""
     config = config or {}
 
@@ -62,7 +62,6 @@ def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
 # Carga de documentos desde las carpetas data/emails, data/notes, data/sms y data/calendar.
 def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
     """Loads documents from the personal data folders.
-
     The collection contains one LangChain Document per `.txt` file in the
     emails, notes, SMS, and calendar folders. Each document stores the file text
     as `page_content` and includes metadata for the source file path and
@@ -76,13 +75,14 @@ def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
     for doc_type in doc_all_types:
 
         # Todos los txt del folder
-        folder_path = globmod.glob(os.path.join(data_dir, doc_type, "*.txt"))
+        search_pattern = os.path.join(data_dir, doc_type, "*.txt")
+        file_all_paths = globmod.glob(search_pattern)
 
         # Cada archivo txt file path en el path del folder 
-        for file_path in folder_path:
+        for file_path in file_all_paths:
             
             with open(file_path, "r", encoding="utf-8") as f:
-               raw_text = f.read 
+               raw_text = f.read()
 
             # Cada archivo .txt deberá convertirse en un Document
             doc = Document(
@@ -100,15 +100,22 @@ def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
     return documents
 
 # División de documentos en chunks utilizando RecursiveCharacterTextSplitter.
-def split_documents(docs: list[Document],chunk_size: int = DEFAULT_CHUNK_SIZE,chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,) -> list[Document]:
+def split_documents(docs: list[Document], chunk_size: int = DEFAULT_CHUNK_SIZE, chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,) -> list[Document]:
     """Splits documents into overlapping chunks.
-
     The resulting chunked Document objects use the configured chunk size and
     overlap while preserving the original document metadata.
     """
 
+    # El tamaño de chunk y el overlap deberán tomarse de la configuración recibida por el pipeline.
+    chunks = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, 
+        chunk_overlap=chunk_overlap
+    )
+    
+    # Los metadatos de los documentos originales deberán preservarse en los chunks.
+    texts = chunks.split_documents(chunks)
 
-    pass
+    return texts
 
 
 def build_index(chunks: list[Document],embedding_model: SentenceTransformer,) -> faiss.IndexFlatIP:
@@ -146,7 +153,7 @@ class Assistant:
             model: SentenceTransformer,
             chunks: list[Document],
             client: OpenAI,
-            config: dict[str, Any] | None = None,
+            config: Optional[dict[str, Any]] = None,
     ) -> None:
         self.index = index
         self.model = model
@@ -157,7 +164,7 @@ class Assistant:
         self.top_k = self.config["top_k"]
         self.history: list[dict[str, str]] = []
 
-    def ask(self, question: str, k: int | None = None) -> str:
+    def ask(self, question: str, k: Optional[int] = None) -> str:
         """Generates an answer from the retrieved context and conversation history.
 
         The current question is combined with relevant document chunks, previous
@@ -171,7 +178,7 @@ class Assistant:
         self.history.clear()
 
     @classmethod
-    def from_config(cls, config: dict[str, Any] | None = None) -> Assistant:
+    def from_config(cls, config: Optional[dict[str, Any]] = None) -> "Assistant":
         """Initializes the components required by the assistant and instantiates it
 
         The pipeline includes resolved configuration, loaded documents, chunked
@@ -207,3 +214,21 @@ class Assistant:
 
         print("Ready!\n")
         return cls(index, embedding_model, chunks, client, resolved_config)
+
+
+# Testing 
+if __name__ == "__main__":
+
+    docs = load_documents()
+
+    print(f"{len(docs)} documents\n")
+
+    # Mostrar primeros documentos
+    for doc in docs[:3]:
+        print("CONTENT:")
+        print(doc.page_content)
+
+        print("\nMETADATA:")
+        print(doc.metadata)
+
+        print("\n")
