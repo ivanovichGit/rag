@@ -245,6 +245,22 @@ class Assistant:
 
         answer = response.choices[0].message.content
         
+        # Referencias de la respuesta 
+        all_sources = []
+
+        for result in results:
+            source = result["metadata"]["source"]
+
+            # No repetir fuentes
+            if source not in all_sources:
+                all_sources.append(source)
+
+        answer += "\n\nReference:\n"
+
+        # Impresion de donde vienen
+        for source in all_sources:
+            answer += f"- {source}\n"
+        
         # Se guarda historial para futuras preguntas  
         self.history.append({
             "role": "user",
