@@ -1,0 +1,9 @@
+python-dotenv
+numpy
+faiss-cpu
+langchain-core
+langchain-text-splitters
+sentence-transformers
+torch
+openai
+
