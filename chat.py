@@ -73,5 +73,6 @@ def main():
 
 
 if __name__ == "__main__":
-    load_dotenv()
+    # Load environment variables from the project `.venv` file
+    load_dotenv(dotenv_path=".venv")
     main()

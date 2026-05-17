@@ -13,11 +13,9 @@ from openai import OpenAI
 # Default configs
 DEFAULT_DATA_DIR = "data"
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-DEFAULT_LLM_MODEL = "gpt-4.1-mini"
 DEFAULT_CHUNK_SIZE = 256
 DEFAULT_CHUNK_OVERLAP = 32
 DEFAULT_TOP_K = 4
-
 
 def _parse_int_setting(name: str, value: Any) -> int:
     try:
@@ -32,9 +30,9 @@ def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     config = config or {}
 
     resolved = {
-        "api_key": config.get("api_key", None),
-        "base_url": config.get("base_url", None),
-        "model": config.get("model", DEFAULT_LLM_MODEL),
+        "api_key": os.environ.get('OPENAI_KEY'),
+        "base_url": os.environ.get('OPENAI_BASE_URL'),
+        "model": os.environ.get('MODEL'),
         "embedding_model": config.get("embedding_model", DEFAULT_EMBEDDING_MODEL),
         "top_k": _parse_int_setting(
             "TOP_K",
