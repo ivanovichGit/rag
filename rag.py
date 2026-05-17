@@ -68,7 +68,34 @@ def load_documents(data_dir: str = DEFAULT_DATA_DIR) -> list[Document]:
     as `page_content` and includes metadata for the source file path and
     document type.
     """
-    pass
+    documents = []
+
+    doc_all_types = ["calendar", "emails", "notes", "sms"]
+
+    # Cada folder 
+    for doc_type in doc_all_types:
+
+        # Todos los txt del folder
+        folder_path = globmod.glob(os.path.join(data_dir, doc_type, "*.txt"))
+
+        # Cada archivo txt 
+        for file in folder_path:
+            
+            with open(file, "r", encoding="utf-8") as f:
+               raw_text = f.read 
+
+            # Creacion Documento del texto en los folder
+            doc = Document(
+                page_content=raw_text, 
+                metadata={
+                    "source": "ml_notes.txt",
+                    "type" : doc_type
+                    }
+                )
+            
+            documents.append(doc)
+
+    return documents
 
 
 def split_documents(
