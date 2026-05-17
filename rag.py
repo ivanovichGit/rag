@@ -142,11 +142,28 @@ def build_index(chunks: list[Document],embedding_model: SentenceTransformer,) ->
 # --- Paso 3: Recuperar documentos relevantes ---
 def retrieve(query: str, index: faiss.IndexFlatIP, model: SentenceTransformer, chunks: list[Document], k: int = DEFAULT_TOP_K,) -> list[dict]:
     """Gets the most relevant chunks for a query.
-
     Results are ordered by similarity and include the chunk text, similarity
     score, and metadata for each matching chunk.
     """
-    pass
+
+    query_embedding = model.encode([query], normalize_embeddings=True).astype(np.float32)
+    
+    scores, indices = index.search(query_embedding, k)
+    
+    results = []
+    
+    # Recorre resultados encontrados
+    for score, idx in zip(scores[0], indices[0]):
+
+        chunk = chunks[idx]
+
+        results.append({
+            "text": chunk.page_content, 
+            "score": float(score),
+            "metadata": chunk.metadata
+        })
+    
+    return results
 
 
 # --- Paso 4: Construir el prompt y generar respuesta ---
@@ -234,12 +251,27 @@ class Assistant:
 if __name__ == "__main__":
 
     docs = load_documents()
-
     chunks = split_documents(docs)
-
     model = SentenceTransformer(DEFAULT_EMBEDDING_MODEL)
-
     index = build_index(chunks, model)
 
-    print(f"Total vectors: {index.ntotal}")
-    print(f"Embedding dimension: {index.d}")
+    results = retrieve(
+        "Where is Laura's party?",
+        index,
+        model,
+        chunks,
+        k=3
+    )
+
+    for result in results:
+
+        print("SCORE:")
+        print(result["score"])
+
+        print("\nMETADATA:")
+        print(result["metadata"])
+
+        print("\nTEXT:")
+        print(result["text"])
+
+        print("\n" + "-" * 50 + "\n")
