@@ -10,6 +10,7 @@ Usage:
 
 import os
 import subprocess
+from typing import Optional
 
 from dotenv import load_dotenv
 

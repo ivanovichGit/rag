@@ -26,7 +26,7 @@ def _parse_int_setting(name: str, value: Any) -> int:
     return parsed
 
 
-def resolve_config(config: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Resolves runtime configuration with defaults and typed settings."""
     config = config or {}
 
@@ -199,7 +199,7 @@ class Assistant:
         self.top_k = self.config["top_k"]
         self.history: list[dict[str, str]] = []
 
-    def ask(self, question: str, k: Optional[int] = None) -> str:
+    def ask(self, question: str, k: int | None = None) -> str:
         """Generates an answer from the retrieved context and conversation history.
         The current question is combined with relevant document chunks, previous
         conversation messages, and the system prompt. The assistant response is
@@ -265,7 +265,7 @@ class Assistant:
         self.history.clear()
 
     @classmethod
-    def from_config(cls, config: Optional[dict[str, Any]] = None) -> "Assistant":
+    def from_config(cls, config: dict[str, Any] | None = None) -> Assistant:
         """Initializes the components required by the assistant and instantiates it
 
         The pipeline includes resolved configuration, loaded documents, chunked
@@ -301,33 +301,3 @@ class Assistant:
 
         print("Ready!\n")
         return cls(index, embedding_model, chunks, client, resolved_config)
-
-
-# Testing 
-if __name__ == "__main__":
-
-    docs = load_documents()
-    chunks = split_documents(docs)
-    model = SentenceTransformer(DEFAULT_EMBEDDING_MODEL)
-    index = build_index(chunks, model)
-
-    results = retrieve(
-        "Where is Laura's party?",
-        index,
-        model,
-        chunks,
-        k=3
-    )
-
-    for result in results:
-
-        print("SCORE:")
-        print(result["score"])
-
-        print("\nMETADATA:")
-        print(result["metadata"])
-
-        print("\nTEXT:")
-        print(result["text"])
-
-        print("\n" + "-" * 50 + "\n")
