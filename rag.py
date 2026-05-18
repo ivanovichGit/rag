@@ -164,6 +164,24 @@ def retrieve(query: str, index: faiss.IndexFlatIP, model: SentenceTransformer, c
     
     return results
 
+# Expansión de query (query expansion)
+def expand_query(question: str, client: OpenAI, model: str):
+    
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{
+            "role": "user", 
+            "content": f"""Generate 3 alternative phrasings of this question for semantic search. 
+            Return only the questions, one per line.
+            Question: {question}
+            """""
+        }],
+    )
+    
+    variants = response.choices[0].message.content.strip().split("\n")
+    
+    return [question] + variants # original + expansions
+
 
 # --- Paso 4: Construir el prompt y generar respuesta ---
 # El asistente deberá recuperar contexto relevante antes de llamar al modelo de lenguaje.
@@ -223,24 +241,62 @@ class Assistant:
 
                 break
 
-        results = retrieve(
-            query=question,
-            index=self.index,
-            model=self.model,
-            chunks=self.chunks, 
-            k=(k or self.top_k) * 5 # overfetching - recuperar un mayor número de documentos del vector store
+        all_expanded_queries = expand_query(
+            question=question,
+            client=self.client,
+            model=self.llm_model
+        )
+        
+        all_results = []
+
+        # Semantic search para cada nuevo query
+        for expanded_query in all_expanded_queries:
+
+            query_result = retrieve(
+                query=expanded_query,
+                index=self.index,
+                model=self.model,
+                chunks=self.chunks, 
+                k=(k or self.top_k) * 5 # overfetching - recuperar un mayor número de documentos del vector store
+            )
+
+            all_results.extend(query_result)
+
+        # Elimina duplicados 
+        unique_results = []
+        seen = set()
+
+        for result in all_results:
+            # Verificar si el resultado viene del mismo documento y chunk
+            key = (
+                result["metadata"]["source"],
+                result["text"]
+            )
+
+            if key not in seen:
+                seen.add(key)
+                unique_results.append(result)
+
+        # Ordena por similarity score
+        unique_results = sorted(
+            unique_results,
+            key=lambda x: x["score"],
+            reverse=True
         )
 
         # Filtrarlos por metadata posteriormente
         if filter_type:
             filtered_results = []
 
-            for result in results:
+            for result in unique_results:
                 if result["metadata"]["type"] == filter_type:
                     filtered_results.append(result)
 
             # Solo top_k finales
-            results = filtered_results[:self.top_k]     
+            results = filtered_results[:self.top_k]    
+        else:
+            # Sin filtro, usar top_k
+            results = unique_results[:self.top_k]
 
         if not results:
             return "I don't have enough information to answer this question."
