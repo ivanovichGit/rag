@@ -33,10 +33,10 @@ def resolve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     api_key = config.get("api_key") or os.environ.get('OPENAI_API_KEY')
     base_url = config.get("base_url") or os.environ.get('OPENAI_BASE_URL')
     model = config.get("model") or os.environ.get('MODEL')
-    embedding_model = config.get("embedding_model") or DEFAULT_EMBEDDING_MODEL
-    top_k = config.get("top_k") or DEFAULT_TOP_K
-    chunk_size = config.get("chunk_size") or DEFAULT_CHUNK_SIZE
-    chunk_overlap = config.get("chunk_overlap") or DEFAULT_CHUNK_OVERLAP
+    embedding_model = config.get("embedding_model") or os.environ.get('EMBEDDING_MODEL') or DEFAULT_EMBEDDING_MODEL
+    top_k = config.get("top_k") or os.environ.get('TOP_K') or DEFAULT_TOP_K 
+    chunk_size = config.get("chunk_size") or os.environ.get('CHUNK_SIZE') or DEFAULT_CHUNK_SIZE
+    chunk_overlap = config.get("chunk_overlap") or os.environ.get('CHUNK_OVERLAP') or DEFAULT_CHUNK_OVERLAP
 
     resolved = {
         "api_key": api_key,
@@ -205,13 +205,42 @@ class Assistant:
         appended to history alongside the user message.
         """
 
+        # Asistente puede permitir filtrar la búsqueda por tipo de documento utilizando etiquetas en la pregunta
+        filter_type = None
+
+        all_filters = {
+            "/notes": "notes",
+            "/sms": "sms",
+            "/calendar": "calendar",
+            "/email": "emails"
+        }
+
+        # Quita el comando de busqueda en la pregunta 
+        for command, doc_type in all_filters.items():
+            if command in question:
+                filter_type = doc_type
+                question = question.replace(command, "").strip()
+
+                break
+
         results = retrieve(
             query=question,
             index=self.index,
             model=self.model,
             chunks=self.chunks, 
-            k=k or self.top_k
+            k=(k or self.top_k) * 5 # overfetching - recuperar un mayor número de documentos del vector store
         )
+
+        # Filtrarlos por metadata posteriormente
+        if filter_type:
+            filtered_results = []
+
+            for result in results:
+                if result["metadata"]["type"] == filter_type:
+                    filtered_results.append(result)
+
+            # Solo top_k finales
+            results = filtered_results[:self.top_k]     
 
         if not results:
             return "I don't have enough information to answer this question."
